@@ -118,9 +118,7 @@ const List = ({ children }: React.PropsWithChildren) => {
 
   return (
     <>
-      <KanbanBoardContainer onDragEnd={function (event: any): void {
-        throw new Error('Function not implemented.')
-      } }>
+      <KanbanBoardContainer>
         <KanbanBoard onDragEnd={handleOnDragEnd}>
           <KanbanColumn
             id="unassigned"
@@ -183,9 +181,7 @@ const PageSkeleton = () => {
   const itemCount = 4;
 
   return (
-    <KanbanBoardContainer onDragEnd={function (event: any): void {
-      throw new Error('Function not implemented.')
-    } }>
+    <KanbanBoardContainer>
       {Array.from({ length: columnCount }).map((_, index) => (
         <KanbanColumnSkeleton key={index}>
           {Array.from({length: itemCount}).map((_, index)=> (
