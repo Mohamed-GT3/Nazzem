@@ -1,84 +1,107 @@
-import { DollarOutlined } from '@ant-design/icons'
-import { Card } from 'antd'
+import { UnorderedListOutlined } from '@ant-design/icons'
+import { Card, List, Space } from 'antd'
 import React from 'react'
 import { Text } from '../text'
-import { Area, AreaConfig } from '@ant-design/plots'
+import LatestActivitiesSkeleton from '../skeleton/latest-activities'
 import { useList } from '@refinedev/core'
-import { DASHBOARD_DEALS_CHART_QUERY } from '@/graphql/queries'
-import { mapDealsData } from '@/utilities/helpers'
-import { GetFieldsFromList } from '@refinedev/nestjs-query'
-import { DashboardDealsChartQuery } from '@/graphql/types'
+import { DASHBOARD_LATEST_ACTIVITIES_AUDITS_QUERY, DASHBOARD_LATEST_ACTIVITIES_DEALS_QUERY } from '@/graphql/queries'
+import dayjs from 'dayjs'
+import CustomAvatar from '../custom-avatar'
 
-const DealsChart = () => {
-  const { data } = useList<GetFieldsFromList<DashboardDealsChartQuery>>({
-    resource: 'dealStages',
-    filters: [
-      {
-        field: 'title', operator: 'in', value: ['WON', 'LOST']
-      }
-    ],
+const LatestActivities = () => {
+  const { data: audit, isLoading: isLoadingAudit, isError, error } = useList({
+    resource: 'audits',
     meta: {
-      gqlQuery: DASHBOARD_DEALS_CHART_QUERY
+      gqlQuery: DASHBOARD_LATEST_ACTIVITIES_AUDITS_QUERY
     }
-  });
+  })
 
-  const dealData = React.useMemo(() => {
-    return mapDealsData(data?.data);
-  }, [data?.data])
+  const dealIds = audit?.data?.map((audit) => audit?.targetId);
 
-  const config: AreaConfig = {
-    data: dealData,
-    xField: 'timeText',
-    yField: 'value',
-    isStack: false,
-    seriesField: 'state',
-    animation: true,
-    startOnZero: false,
-    smooth: true,
-    legend: {
-      offsetY: -6
+  const { data: deals, isLoading: isLoadingDeals } = useList({
+    resource: 'deals',
+    queryOptions: { enabled: !!dealIds?.length },
+    pagination: {
+      mode: 'off'
     },
-    yAxis: {
-      tickCount: 4,
-      label: {
-        formatter: (v: string) => {
-          return `$${Number(v) /1000}k`
-        }
-      }
-    },
-    tooltip: {
-      formatter: (data) => {
-        return {
-          name: data.state,
-          value: `$${Number(data.value) / 1000}k`
-        }
-      }
-    },
+    filters: [{ field: 'id', operator: 'in', value: dealIds }],
+    meta: {
+      gqlQuery: DASHBOARD_LATEST_ACTIVITIES_DEALS_QUERY
+    }
+  })
+
+  if(isError) {
+    console.log(error);
+    return null;
   }
+
+  const isLoading = isLoadingAudit || isLoadingDeals; 
 
   return (
     <Card
-      style={{ height: '100%' }}
-      headStyle={{ padding: '8px 16px' }}
-      bodyStyle={{ padding: '24px 24px 0 24px'}}
-      title={
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <DollarOutlined />
-          <Text size="sm" style={{ marginLeft: '0.5rem'}}>
-            Deals
-          </Text>
+      headStyle={{ padding: '16px'}}
+      bodyStyle={{ padding: '0 1rem'}}
+      title={(
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <UnorderedListOutlined />
+            <Text size="sm" style={{ marginLeft: '0.5rem'}}>
+              Latest Activities
+            </Text>
         </div>
-      }
+      )}
     >
-      <Area {...config} height={325}  />
+      {isLoading ? (
+        <List 
+          itemLayout='horizontal'
+          dataSource={Array.from({ length: 5})
+            .map((_, i) => ({ id: i}))}
+            renderItem={(_, index) => (
+              <LatestActivitiesSkeleton key={index} />
+            )}
+        />
+      ): (
+        <List 
+          itemLayout='horizontal'
+          dataSource={audit?.data}
+          renderItem={(item) => {
+            const deal = deals?.data.find(
+              (deal) => deal.id === String(item.targetId)
+              ) || undefined;
+
+            return (
+              <List.Item>
+                <List.Item.Meta 
+                  title={dayjs(deal?.createdAt).format('MMM DD, YYYY - HH:mm')}
+                  avatar={
+                    <CustomAvatar 
+                      shape="square"
+                      size={48}
+                      src={deal?.company.avatarUrl}
+                      name={deal?.company.name}
+                    />
+                  }
+                  description={
+                    <Space size={4}>
+                      <Text strong>{item.user?.name}</Text>
+                      <Text>
+                        {item.action === 'CREATE' ? 'created' : 'moved'}
+                      </Text>
+                      <Text strong> {deal?.title}</Text>
+                      <Text>deal</Text>
+                      <Text>{item.action === 'CREATE' ? 'in' : 'to'}</Text>
+                      <Text strong>
+                      {deal?.stage?.title}
+                      </Text>
+                    </Space>
+                  }
+                />
+              </List.Item>
+            )
+          }}
+        />
+      )}
     </Card>
   )
 }
 
-export default DealsChart
+export default LatestActivities
